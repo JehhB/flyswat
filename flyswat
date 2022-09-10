@@ -1,0 +1,56 @@
+#!/bin/sh
+
+VERSION='0.0.0'
+
+usage() { 
+  echo 'Usage: flyswat [adfly link]'
+}
+
+info() {
+  echo "flyswat ($VERSION)"
+  echo 
+  echo "Flyswat takes a link from adfly or similar sites and outputs the redirect link"
+  echo
+
+  usage
+}
+
+get_ysmm() {
+  site=$(wget -O- "$1");
+
+  wget_exit_code=$?
+  if [ $wget_exit_code -ne 0 ]; then
+    echo "Error encountered retrieving site" 1>&2
+    exit $wget_exit_code
+  fi
+
+  if ! ysmm=$(echo "$site" | grep -Po "(?<=ysmm = ')[^']*") ; then
+    echo "URL given is not supported"
+    exit 1
+  fi
+}
+
+decode_ysmm() {
+  letters=$(echo "$ysmm" | grep -o .)
+
+  left=$(echo "$letters" | awk '(NR%2==1)' | tr -d '\n')
+  right=$(echo "$letters" | awk '(NR%2==0)' | tr -d '\n' | rev)
+
+  echo "$left$right"
+  key=$(echo "$left$right" | base64 -d)
+
+  echo "$key" | sed 's/^.\{16\}//;s/.\{16\}$//' 
+}
+
+if [ $# -ne 1 ]; then
+  echo 'Invalid usage: Try -h or --help for more information' 1>&2
+  usage 1>&2
+  exit 1
+fi
+
+if [ "$1" = '--help' ] || [ "$1" = '-h' ]; then
+  info
+fi
+
+get_ysmm "$1"
+decode_ysmm
